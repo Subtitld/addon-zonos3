@@ -304,7 +304,7 @@ jobs:
           # files byte for byte.
           for program in programs:
               if program in names:
-                  with open('build/assets/' + program.rsplit('/', 1)[1], 'rb') as f:
+                  with open('build/assets/' + program.removeprefix('bin/_internal/assets/'), 'rb') as f:
                       if zf.read(program) != f.read():
                           problems.append(f'{program} differs from the built library')
           # No model files in the archive: they are the user's download.
