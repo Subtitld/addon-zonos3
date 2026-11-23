@@ -59,6 +59,41 @@ def test_voiced_seconds_counts_only_the_voice():
     assert engine.voiced_seconds(_tone(1.0, level=0.005)) == 0
 
 
+def _takes(outcomes):
+    """A Zonos3 whose takes come out as `outcomes`: 'silent', 'capped' (voiced, LACI gave up) or 'good'."""
+    model = object.__new__(engine.Zonos3)
+    model.sample_rate = 48000
+    seeds = []
+
+    def once(text, language, embedding, seed, rate, laci, cancel):
+        kind = outcomes[len(seeds)]
+        seeds.append(seed)
+        length = 48000 * (1 + len(seeds))          # later takes are longer
+        loud = 0.0 if kind == 'silent' else 0.3
+        return array('f', [loud * math.sin(i / 7) for i in range(length)]), {'capped': kind == 'capped'}
+    model._once = once
+    return model, seeds
+
+
+def test_a_silent_take_is_taken_again():
+    model, seeds = _takes(['silent'] * 5 + ['good'])
+    samples, record = model.synthesize('text', voices.language_for('gu'), None, seed=20)
+    assert seeds == [20, 21, 22, 23, 24, 25] and record['takes'] == 6 and not record['capped']
+
+
+def test_capped_takes_end_with_the_longest():
+    model, seeds = _takes(['capped', 'silent', 'capped', 'capped', 'good'])
+    samples, record = model.synthesize('text', voices.language_for('el'), None)
+    assert len(seeds) == 4 and record['takes'] == 4 and len(samples) == 48000 * 5
+
+
+def test_only_silent_takes_are_an_error():
+    model, seeds = _takes(['silent'] * engine._TAKES)
+    with pytest.raises(engine.SilentTakes):
+        model.synthesize('text', voices.language_for('gu'), None)
+    assert len(seeds) == engine._TAKES
+
+
 def test_the_hosts_rate_is_the_speaking_rate():
     assert engine.speaking_rate(0) == -1.0
     assert engine.speaking_rate(50) == pytest.approx(14.5 * 1.5)

@@ -46,9 +46,15 @@ LIBRARY = {'linux': 'libzonos3_c.so', 'win32': 'zonos3_c.dll', 'darwin': 'libzon
 # The speaking-rate condition is in UTF-8 bytes per second; 14.5 is about the middle of the model's scale
 # (bucket 15 of 30), the pace of ordinary speech in the Latin-script languages.
 _NATURAL_RATE = 14.5
-# A take is redone with the next seed when it holds less voice than this (the model, rarely, says nothing).
+# A take is redone with the next seed when it holds less voice than this (the model, rarely, says nothing), or when
+# LACI ran out of attempts at it ("capped": the last one still skipped or stopped short). A cloned voice in a language
+# its clip isn't in does both often: an English clip in Gujarati gave 10 silent and 2 half-read takes in 16 seeds.
 _MIN_VOICED_SEC = 0.12
-_RETRIES = 2
+_TAKES = 12
+# A take LACI gave up on still holds speech, often all of it, and costs a full reading plus LACI's own retries (an
+# English clip in Greek: every take capped, at about 10 s each). After this many of them, the longest is kept.
+_CAPPED_TAKES = 3
+
 
 
 class EngineError(Exception):
@@ -57,6 +63,9 @@ class EngineError(Exception):
 
 class Cancelled(Exception):
     """The request was cancelled."""
+
+class SilentTakes(EngineError):
+    """Every take of a line came out (nearly) silent."""
 
 
 def assets_dir() -> Path:
@@ -305,13 +314,17 @@ class Zonos3:
                    rate: float = -1.0, cancel: Cancel | None = None) -> tuple[array, dict]:
         """(samples at sample_rate, what happened). `text` is normalized already.
 
-        A take with almost no voice is taken again with the next seed. LACI's
-        probe reads at most 2048 text rows; a longer line is spoken without it.
+        A take that is silent, or that LACI gave up on, is taken again with
+        the next seed, up to _TAKES (and _CAPPED_TAKES of those LACI gave up
+        on); then the longest take with voice is kept, unless all were silent
+        (SilentTakes). LACI's probe reads at most 2048
+        text rows; a longer line is spoken without it.
         """
         cancel = cancel or Cancel()
         laci = True
         best: tuple[array, dict] | None = None
-        for attempt in range(_RETRIES + 1):
+        capped = 0
+        for attempt in range(_TAKES):
             try:
                 samples, record = self._once(text, language, embedding, seed + attempt, rate, laci, cancel)
             except EngineError as exc:
@@ -323,11 +336,18 @@ class Zonos3:
                     raise
             record['seed'] = seed + attempt
             record['laci'] = laci
-            voiced = voiced_seconds(samples, self.sample_rate)
-            if voiced >= _MIN_VOICED_SEC:
+            record['takes'] = attempt + 1
+            silent = voiced_seconds(samples, self.sample_rate) < _MIN_VOICED_SEC
+            if not silent and not record.get('capped'):
                 return samples, record
-            log.info('take %d holds %.2fs of voice; taking it again', attempt + 1, voiced)
-            if best is None or len(samples) > len(best[0]):
-                best = (samples, record)
-        assert best is not None
+            log.info('take %d %s', attempt + 1, 'holds almost no voice' if silent else 'is one LACI gave up on')
+            if not silent:
+                capped += 1
+                if best is None or len(samples) > len(best[0]):
+                    best = (samples, record)
+                if capped >= _CAPPED_TAKES:
+                    break
+        if best is None:
+            raise SilentTakes(f'{_TAKES} takes of the line came out silent. With a cloned voice, a clip in the '
+                              'line\'s language helps; or pick a stock voice.')
         return best

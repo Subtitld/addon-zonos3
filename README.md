@@ -67,8 +67,17 @@ condition; at 0 each voice keeps its own pace.
   this add-on's own rule, not Zyphra's: their fix for short lines adds a
   filler sentence after a pause token, and this checkpoint has no pause
   tokens. On short subtitle lines, transcribed back with Whisper, 61 of 64
-  takes were clean with both, against 37 of 64 without. A take with almost
-  no voice in it is taken again with the next seed.
+  takes were clean with both, against 37 of 64 without.
+- **Takes again.** A take with almost no voice in it, or one LACI gave up on
+  (it ran out of its own retries and the reading still skipped or stopped
+  short), is taken again with the next seed: up to 12 takes, of which at
+  most 3 that LACI gave up on; then the longest is kept. A cloned voice in a
+  language its clip isn't in needs this most: with an English clip, Gujarati
+  came out silent in 10 seeds of 16 and half-read in 2 more under 26.11.1,
+  which tried 3 seeds. When every take is silent, the line fails with a
+  message instead of writing silence. Such clones keep a strong accent
+  either way, and in some languages (Greek, in our tests) lose the words;
+  a reference clip in the line's language, or a stock voice, does better.
 - **Downloads** come from Zyphra's Hugging Face repository, pinned to one
   revision and checked by SHA-256 (`zonos3_addon/pins.json`), into
   Subtitld's model folder (`$SUBTITLD_MODELS_DIR/zonos3/`). An interrupted

@@ -395,6 +395,9 @@ def _handle_synthesize(state: _Request, params: dict) -> None:
         return
     try:
         language = _resolve_language(params.get('language'))
+    except _silent_type() as exc:
+        log.warning('synthesize %s: %s', req_id, exc)
+        outcome = ('error', ERR_INTERNAL, str(exc), True)
     except _AddonError as exc:
         _emit_error(req_id, exc.code, exc.message)
         return
@@ -446,7 +449,8 @@ def _handle_synthesize(state: _Request, params: dict) -> None:
         audio.write_wav(Path(output_path), samples, model.sample_rate)
         duration = len(samples) / model.sample_rate
         log.info('synthesize %s: %.2fs of audio in %.2fs (%s)', req_id, duration, took,
-                 ', '.join(f'{k}={record[k]}' for k in ('end', 'attempts', 'tail_cut', 'seed', 'laci') if k in record))
+                 ', '.join(f'{k}={record[k]}' for k in ('end', 'attempts', 'takes', 'tail_cut', 'seed', 'laci')
+                           if k in record))
         outcome = ('result', {
             'path': output_path,
             'duration_sec': round(duration, 3),
@@ -480,6 +484,11 @@ def _handle_synthesize(state: _Request, params: dict) -> None:
         _emit_result(req_id, outcome[1])
     else:
         _emit_error(req_id, *outcome[1:])
+
+
+def _silent_type():
+    from zonos3_addon import engine
+    return engine.SilentTakes
 
 
 def _cancelled_type():
