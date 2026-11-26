@@ -17,7 +17,8 @@ textnorm, no Rust), builds native/ against it, and collects:
 
 Linux builds run in the AlmaLinux 8 container (tools/build_native_linux.sh),
 so the library loads on glibc 2.28. Windows needs Visual Studio's C++ tools,
-macOS the Xcode command-line tools; both need CMake and git.
+macOS the Xcode command-line tools; both need CMake and git. Haiku builds run
+on Haiku, against the system's libroot and libstdc++ (on every install).
 
     python tools/build_native.py [--jobs N]
 """
@@ -42,7 +43,12 @@ NATIVE_BUILD = BUILD / 'native'
 REPO = 'https://github.com/Zyphra/ZONOS3-Mini'
 COMMIT = 'a50e14117d99181ba7f28047b451ba03ba1a09a9'  # main, 2026-11-17
 
-LIBRARY = {'linux': 'libzonos3_c.so', 'windows': 'zonos3_c.dll', 'macos': 'libzonos3_c.dylib'}
+LIBRARY = {'linux': 'libzonos3_c.so', 'windows': 'zonos3_c.dll', 'macos': 'libzonos3_c.dylib',
+           'haiku': 'libzonos3_c.so'}
+
+# Haiku: libroot is its C library; libstdc++ and libgcc_s come with every
+# install (gcc_syslibs).
+HAIKU_SYSTEM = {'libroot.so', 'libstdc++.so.6', 'libgcc_s.so.1', 'libnetwork.so', 'libbsd.so'}
 
 # Libraries every Linux desktop has; the build may link nothing else dynamically.
 LINUX_SYSTEM = {
@@ -154,6 +160,18 @@ def check_linux(lib):
     print('the library loads on glibc 2.28 with the GCC 8 runtime, and exports only zs_*')
 
 
+def check_haiku(lib):
+    problems = [f'{lib.name} needs {dep}, which is not a system library'
+                for dep in needed(lib) if dep not in HAIKU_SYSTEM]
+    exported = [line.split()[-1] for line in output(['nm', '-D', '--defined-only', lib]).splitlines()
+                if line.split()[-1:] and not line.split()[-1].startswith('zs_') and ' T ' in line]
+    if exported:
+        problems.append(f'{lib.name} exports more than zs_*: {exported[:5]}')
+    if problems:
+        sys.exit('not loadable on Haiku:\n  ' + '\n  '.join(sorted(set(problems))))
+    print('the library needs only Haiku system libraries, and exports only zs_*')
+
+
 # ---- licences ---------------------------------------------------------------
 
 def leading_comment(path):
@@ -213,7 +231,8 @@ SOFTWARE.
 
 
 def main():
-    host = {'linux': 'linux', 'win32': 'windows', 'darwin': 'macos'}[sys.platform]
+    host = 'haiku' if sys.platform.startswith('haiku') else {'linux': 'linux', 'win32': 'windows',
+                                                               'darwin': 'macos'}[sys.platform]
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--jobs', type=int, default=int(os.environ.get('JOBS', os.cpu_count() or 4)))
     args = parser.parse_args()
@@ -225,6 +244,8 @@ def main():
     shutil.copyfile(library, target)
     if host == 'linux':
         check_linux(target)
+    elif host == 'haiku':
+        check_haiku(target)
     data = ASSETS / 'zonos3'
     shutil.copytree(SRC / 'assets' / 'laci_heads', data / 'laci_heads')
     shutil.copyfile(SRC / 'model/src/zonos3/registries/languages.json', data / 'languages.json')
