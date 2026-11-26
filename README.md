@@ -108,3 +108,13 @@ rewrites the Rust crate notices for another version of zyphra-textnorm.
 Tests: `pytest` (the native runtime and model-backed tests need
 `build/assets/` and `ZONOS3_TEST_MODELS_DIR`; `tests/test_installed.py` runs
 a frozen binary).
+
+## Haiku
+
+libzonos3_c and zyphra-textnorm (a Rust extension with no Haiku wheel, built with cargo from the rust_bin package) are built on Haiku, so the Haiku archive is built on a Haiku machine and added to a release by hand. Haiku has no PyInstaller: the add-on runs on HaikuPorts' Python 3.14.
+
+```bash
+python3.14 tools/build_native.py
+python3.14 tools/build_textnorm_haiku.py
+python3.14 tools/build_haiku.py
+```

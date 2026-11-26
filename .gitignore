@@ -15,3 +15,4 @@ frozen-report.xml
 .spike/
 build-native.log
 build-linux.log
+release-staging-haiku/
