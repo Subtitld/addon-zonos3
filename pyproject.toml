@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "subtitld-addon-zonos3"
-version = "26.11.2"
+version = "26.11.3"
 description = "Subtitld add-on: offline text-to-speech with Zyphra's ZONOS3-Mini, 43 languages, 27 voices and voice cloning"
 readme = "README.md"
 license = "Apache-2.0"

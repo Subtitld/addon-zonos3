@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "id": "zonos3",
-  "version": "26.11.2",
+  "version": "26.11.3",
   "display_name": "ZONOS3-Mini (offline, voice clone, 43 languages)",
   "summary": "Zyphra's ZONOS3-Mini speaks 43 languages at 44.1 kHz, in 27 stock voices or in the speaker's own voice, cloned from a few seconds of the video. Runs on the CPU, about twice as fast as real time, and checks each line as it speaks it so it doesn't skip words or run on after the text. The 1,115 MB model downloads on the first line; cloning needs 45 MB more.",
   "author": "Subtitld",

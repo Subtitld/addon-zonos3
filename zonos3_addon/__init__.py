@@ -8,6 +8,6 @@ The package exists so the entry point can run both from source
 (`bin/zonos3-addon`).
 """
 
-__version__ = '26.11.2'
+__version__ = '26.11.3'
 ADDON_ID = 'zonos3'
 PROTOCOL_VERSION = 1
